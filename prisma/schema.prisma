@@ -1,0 +1,195 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── User & Auth ──────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String?
+  refreshToken String?
+  provider     String   @default("local")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  role         String
+
+  firstName String
+  lastName  String
+
+  emailVerified    Boolean   @default(false)
+  resetOTP         String?
+  resetOTPExpiry   DateTime?
+  verificationCode String?
+
+  gender  String?
+  dob     String?
+  address String?
+
+  username String @unique
+
+  phoneNumber String?
+  city        String?
+  state       String?
+  country     String?
+
+  image      String?
+  joinedDate String?
+
+  isDeleted           Boolean @default(false)
+  onboardingCompleted Boolean @default(false)
+
+  interests String[]
+
+  admin   Admin?
+  events  Event[]
+  orders  Order[]
+  tickets Ticket[]
+}
+
+enum AdminPosition {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+}
+
+model Admin {
+  id        String        @id @default(uuid())
+  userId    String        @unique
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  position  AdminPosition @default(ADMIN)
+  user      User          @relation(fields: [userId], references: [id])
+}
+
+// ─── Events & Ticketing ───────────────────────────────────────────────────────
+
+enum EventCategory {
+  CONCERT
+  PRIVATE_DINING
+  ART_EXHIBITION
+  NIGHTLIFE
+  FESTIVAL
+  WELLNESS
+  SPORT
+  OTHER
+}
+
+enum EventStatus {
+  DRAFT
+  LIVE
+  SOLD_OUT
+  CANCELLED
+  ENDED
+}
+
+model Event {
+  id           String        @id @default(uuid())
+  title        String
+  slug         String        @unique
+  description  String?
+  category     EventCategory
+  status       EventStatus   @default(DRAFT)
+  coverImage   String?
+  date         DateTime
+  doorsOpen    String
+  venueName    String
+  venueAddress String?
+  city         String?
+  dressCode    String?
+  isMemberOnly Boolean       @default(false)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  ticketTiers TicketTier[]
+  orders      Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TicketTier {
+  id          String  @id @default(uuid())
+  eventId     String
+  name        String
+  description String?
+  price       Int // in kobo (100 kobo = ₦1)
+  quantity    Int
+  sold        Int     @default(0)
+
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Orders & Tickets ─────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  reference String      @unique
+  userId    String
+  eventId   String
+  status    OrderStatus @default(PENDING)
+
+  subtotal   Int // in kobo
+  serviceFee Int // in kobo
+  total      Int // in kobo
+
+  paystackReference String?
+  paystackData      Json?
+
+  user    User        @relation(fields: [userId], references: [id])
+  event   Event       @relation(fields: [eventId], references: [id])
+  items   OrderItem[]
+  tickets Ticket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id           String @id @default(uuid())
+  orderId      String
+  ticketTierId String
+  quantity     Int
+  unitPrice    Int // in kobo, price locked at time of purchase
+
+  order      Order      @relation(fields: [orderId], references: [id])
+  ticketTier TicketTier @relation(fields: [ticketTierId], references: [id])
+  tickets    Ticket[]
+}
+
+model Ticket {
+  id          String    @id @default(uuid())
+  code        String    @unique // unique QR code value
+  orderId     String
+  orderItemId String
+  userId      String
+  isUsed      Boolean   @default(false)
+  usedAt      DateTime?
+
+  order     Order     @relation(fields: [orderId], references: [id])
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
