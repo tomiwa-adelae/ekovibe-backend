@@ -15,6 +15,10 @@ import { EventCategory } from 'generated/prisma/client';
 
 export class CreateTicketTierDto {
   @IsString()
+  @IsOptional()
+  id?: string; // present on updates to match existing tiers
+
+  @IsString()
   @IsNotEmpty()
   name: string;
 

@@ -203,15 +203,56 @@ export class EventsService {
     };
 
     if (dto.ticketTiers) {
-      await this.prisma.ticketTier.deleteMany({ where: { eventId: id } });
-      updateData.ticketTiers = {
-        create: dto.ticketTiers.map((t) => ({
-          name: t.name,
-          description: t.description,
-          price: t.price,
-          quantity: t.quantity,
-        })),
-      };
+      // Fetch existing tiers so we know which have sold tickets
+      const existingTiers = await this.prisma.ticketTier.findMany({
+        where: { eventId: id },
+        select: { id: true, sold: true },
+      });
+
+      const submittedIdSet = new Set(
+        dto.ticketTiers.filter((t) => t.id).map((t) => t.id),
+      );
+
+      // Delete only tiers not in the submitted list that have no sold tickets
+      const toDelete = existingTiers
+        .filter((t) => !submittedIdSet.has(t.id) && t.sold === 0)
+        .map((t) => t.id);
+
+      if (toDelete.length > 0) {
+        await this.prisma.ticketTier.deleteMany({
+          where: { id: { in: toDelete } },
+        });
+      }
+
+      // Upsert each submitted tier
+      for (const tier of dto.ticketTiers) {
+        if (tier.id) {
+          // Update existing tier; don't allow quantity to drop below sold count
+          const existing = existingTiers.find((t) => t.id === tier.id);
+          await this.prisma.ticketTier.update({
+            where: { id: tier.id },
+            data: {
+              name: tier.name,
+              description: tier.description,
+              price: tier.price,
+              quantity: existing
+                ? Math.max(tier.quantity, existing.sold)
+                : tier.quantity,
+            },
+          });
+        } else {
+          // Brand-new tier
+          await this.prisma.ticketTier.create({
+            data: {
+              eventId: id,
+              name: tier.name,
+              description: tier.description,
+              price: tier.price,
+              quantity: tier.quantity,
+            },
+          });
+        }
+      }
     }
 
     return this.prisma.event.update({
