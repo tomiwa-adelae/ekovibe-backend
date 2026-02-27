@@ -133,14 +133,17 @@ export class AuthService {
     const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
       data: { refreshToken },
+      include: { admin: true },
     });
 
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
-      user: plainToClass(UserResponseDto, updatedUser, {
-        excludeExtraneousValues: true,
-      }),
+      user: plainToClass(
+        UserResponseDto,
+        { ...updatedUser, isAdmin: !!updatedUser.admin },
+        { excludeExtraneousValues: true },
+      ),
     };
   }
 

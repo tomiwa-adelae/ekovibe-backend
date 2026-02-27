@@ -63,4 +63,7 @@ export class UserResponseDto {
 
   @Expose()
   phoneNumber?: string;
+
+  @Expose()
+  isAdmin?: boolean;
 }
