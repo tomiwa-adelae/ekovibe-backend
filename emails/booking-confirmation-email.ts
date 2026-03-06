@@ -100,7 +100,7 @@ export function BookingConfirmationEmail({
               <table cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
                 <tr>
                   <td style="background:#ffffff;">
-                    <a href="${process.env.FRONTEND_URL}/dashboard/access"
+                    <a href="${process.env.FRONTEND_URL}/tickets"
                        style="display:inline-block;padding:16px 32px;font-size:10px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#000000;text-decoration:none;">
                       View My Tickets
                     </a>
