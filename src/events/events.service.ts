@@ -109,7 +109,7 @@ export class EventsService {
 
   // Public: only LIVE events
   async findPublished(query: EventQueryDto) {
-    const { search, category, page = 1, limit = 20 } = query;
+    const { search, category, sortBy, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
     const where: any = { status: EventStatus.LIVE };
@@ -120,12 +120,19 @@ export class EventsService {
       ];
     }
     if (category) where.category = category;
+    if (dateFrom || dateTo) {
+      where.date = {};
+      if (dateFrom) where.date.gte = new Date(dateFrom);
+      if (dateTo) where.date.lte = new Date(dateTo);
+    }
+
+    const orderBy = sortBy === 'date_desc' ? { date: 'desc' as const } : { date: 'asc' as const };
 
     const [events, total] = await Promise.all([
       this.prisma.event.findMany({
         where,
         include: { ticketTiers: true },
-        orderBy: { date: 'asc' },
+        orderBy,
         skip,
         take: limit,
       }),

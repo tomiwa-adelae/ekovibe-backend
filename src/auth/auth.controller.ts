@@ -3,6 +3,7 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   Request,
@@ -11,11 +12,15 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { Response, Request as ExpressRequest } from 'express';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { SetNewPasswordDto } from './dto/set-new-password.dto';
+import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { CurrentUser } from 'src/decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -25,16 +30,13 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Request() req, @Res() res: Response) {
-    const { access_token, refresh_token, user } =
-      await this.authService.login(req.user);
+    const { access_token, refresh_token, user } = await this.authService.login(
+      req.user,
+    );
 
     const cookieOptions = this.authService.getCookieOptions();
     const sessionMs = this.authService.getSessionMs(); // 30 days
 
-    // The refresh token cookie lives for the full 30-day session.
-    // The access token cookie also gets a 30-day maxAge so the browser never
-    // drops it early — but the JWT inside expires in 15 min, triggering a
-    // silent refresh via the axios interceptor.
     res.cookie('refreshToken', refresh_token, {
       ...cookieOptions,
       maxAge: sessionMs,
@@ -70,7 +72,7 @@ export class AuthController {
       maxAge: sessionMs,
     });
 
-    return res.json({ user, message: `Welcome to Nuvylux, ${user.firstName}` });
+    return res.json({ user, message: `Welcome to Ekovibe, ${user.firstName}` });
   }
 
   @Post('logout')
@@ -152,5 +154,30 @@ export class AuthController {
       newPassword: newPasswordDto.newPassword,
       confirmPassword: newPasswordDto.confirmPassword,
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(
+    @CurrentUser() currentUser: any,
+    @Body() dto: UpdateUserProfileDto,
+  ) {
+    return this.authService.updateProfile(currentUser.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() currentUser: any,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(
+      currentUser.id,
+      dto.currentPassword,
+      dto.newPassword,
+      dto.confirmPassword,
+    );
   }
 }

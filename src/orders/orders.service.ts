@@ -4,7 +4,6 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
 import Mailjet from 'node-mailjet';
 import { EventStatus, OrderStatus } from 'generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -12,12 +11,33 @@ import { PaystackService } from './paystack.service';
 import { InitiateOrderDto } from './dto/initiate-order.dto';
 import { VerifyOrderDto } from './dto/verify-order.dto';
 import { BookingConfirmationEmail } from 'emails/booking-confirmation-email';
+import { OrderFailedEmail } from 'emails/order-failed-email';
+import { EntryConfirmedEmail } from 'emails/entry-confirmed-email';
 
 function getMailjet() {
   return Mailjet.apiConnect(
     process.env.MAILJET_API_PUBLIC_KEY!,
     process.env.MAILJET_API_PRIVATE_KEY!,
   );
+}
+
+// Unambiguous charset — no 0/O, 1/I/L to avoid scanning confusion
+const TICKET_CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+function generateTicketCode(eventTitle: string): string {
+  const abbrev = eventTitle
+    .split(/\s+/)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .filter(Boolean)
+    .slice(0, 4)
+    .join('');
+
+  let random = '';
+  for (let i = 0; i < 6; i++) {
+    random += TICKET_CHARSET[Math.floor(Math.random() * TICKET_CHARSET.length)];
+  }
+
+  return `${abbrev}-${random}`;
 }
 
 const SERVICE_FEE_PER_TICKET = 250000; // ₦2,500 in kobo
@@ -34,8 +54,6 @@ export class OrdersService {
     dto: InitiateOrderDto,
     userEmail: string,
   ) {
-    const quantity = dto.quantity ?? 1;
-
     // Validate event exists and is live
     const event = await this.prisma.event.findUnique({
       where: { id: dto.eventId },
@@ -45,29 +63,38 @@ export class OrdersService {
       throw new BadRequestException('This event is not currently available');
     }
 
-    // Validate ticket tier and availability
-    const tier = await this.prisma.ticketTier.findUnique({
-      where: { id: dto.tierId },
+    // Validate all requested tiers and check stock
+    const tiers = await this.prisma.ticketTier.findMany({
+      where: { id: { in: dto.items.map((i) => i.tierId) } },
     });
-    if (!tier || tier.eventId !== dto.eventId) {
-      throw new NotFoundException('Ticket tier not found');
-    }
-    const available = tier.quantity - tier.sold;
-    if (available < quantity) {
-      throw new BadRequestException(
-        `Only ${available} ticket(s) remaining for this tier`,
-      );
+
+    for (const item of dto.items) {
+      const tier = tiers.find((t) => t.id === item.tierId);
+      if (!tier || tier.eventId !== dto.eventId) {
+        throw new NotFoundException(`Ticket tier ${item.tierId} not found`);
+      }
+      const available = tier.quantity - tier.sold;
+      if (available < item.quantity) {
+        throw new BadRequestException(
+          `Only ${available} ticket(s) remaining for "${tier.name}"`,
+        );
+      }
     }
 
     // Calculate pricing (all in kobo)
-    const subtotal = tier.price * quantity;
-    const serviceFee = SERVICE_FEE_PER_TICKET * quantity;
+    const totalTickets = dto.items.reduce((s, i) => s + i.quantity, 0);
+    const subtotal = dto.items.reduce((s, item) => {
+      const tier = tiers.find((t) => t.id === item.tierId)!;
+      return s + tier.price * item.quantity;
+    }, 0);
+    const serviceFee = SERVICE_FEE_PER_TICKET * totalTickets;
     const total = subtotal + serviceFee;
 
-    // Generate unique order reference
-    const reference = `EKV-${Date.now()}-${uuidv4().split('-')[0].toUpperCase()}`;
+    // Generate unique order reference (no uuid dependency)
+    const randPart = Math.random().toString(36).slice(2, 7).toUpperCase();
+    const reference = `EKV-${Date.now()}-${randPart}`;
 
-    // Create pending order + order item
+    // Create pending order with all items
     const order = await this.prisma.order.create({
       data: {
         reference,
@@ -78,11 +105,14 @@ export class OrdersService {
         serviceFee,
         total,
         items: {
-          create: {
-            ticketTierId: dto.tierId,
-            quantity,
-            unitPrice: tier.price,
-          },
+          create: dto.items.map((item) => {
+            const tier = tiers.find((t) => t.id === item.tierId)!;
+            return {
+              ticketTierId: item.tierId,
+              quantity: item.quantity,
+              unitPrice: tier.price,
+            };
+          }),
         },
       },
       include: { items: true },
@@ -93,13 +123,7 @@ export class OrdersService {
       email: userEmail,
       amount: total,
       reference,
-      metadata: {
-        orderId: order.id,
-        eventId: dto.eventId,
-        tierId: dto.tierId,
-        quantity,
-        userId,
-      },
+      metadata: { orderId: order.id, eventId: dto.eventId, userId },
     });
 
     return {
@@ -144,6 +168,30 @@ export class OrdersService {
         where: { id: order.id },
         data: { status: OrderStatus.FAILED, paystackData: paystackData as any },
       });
+      // Notify user of failed payment
+      try {
+        await getMailjet()
+          .post('send', { version: 'v3.1' })
+          .request({
+            Messages: [
+              {
+                From: {
+                  Email: process.env.SENDER_EMAIL_ADDRESS,
+                  Name: 'Ekovibe',
+                },
+                To: [{ Email: order.user.email, Name: order.user.firstName }],
+                Subject: `Payment Failed — ${order.event.title}`,
+                HTMLPart: OrderFailedEmail({
+                  firstName: order.user.firstName,
+                  eventTitle: order.event.title,
+                  orderReference: order.reference,
+                }),
+              },
+            ],
+          });
+      } catch {
+        // Email failure should not change the error response
+      }
       throw new BadRequestException('Payment was not successful');
     }
 
@@ -162,7 +210,7 @@ export class OrdersService {
     for (const item of order.items) {
       for (let i = 0; i < item.quantity; i++) {
         ticketData.push({
-          code: uuidv4(),
+          code: generateTicketCode(order.event.title),
           orderId: order.id,
           orderItemId: item.id,
           userId,
@@ -282,6 +330,24 @@ export class OrdersService {
     });
   }
 
+  async getUserTicketByCode(code: string, userId: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { code },
+      include: {
+        order: {
+          include: {
+            event: true,
+          },
+        },
+        orderItem: { include: { ticketTier: true } },
+      },
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (ticket.userId !== userId) throw new ForbiddenException('Access denied');
+    return ticket;
+  }
+
   async getTicketByCode(code: string) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { code },
@@ -300,7 +366,7 @@ export class OrdersService {
     const ticket = await this.prisma.ticket.findUnique({
       where: { code },
       include: {
-        user: { select: { firstName: true, lastName: true } },
+        user: { select: { firstName: true, lastName: true, email: true } },
         order: { include: { event: { select: { title: true } } } },
         orderItem: { include: { ticketTier: { select: { name: true } } } },
       },
@@ -318,11 +384,52 @@ export class OrdersService {
       };
     }
 
+    const usedAt = new Date();
+
     // Mark as used
     await this.prisma.ticket.update({
       where: { id: ticket.id },
-      data: { isUsed: true, usedAt: new Date() },
+      data: { isUsed: true, usedAt },
     });
+
+    // Send entry confirmed email
+    try {
+      await getMailjet()
+        .post('send', { version: 'v3.1' })
+        .request({
+          Messages: [
+            {
+              From: {
+                Email: process.env.SENDER_EMAIL_ADDRESS,
+                Name: 'Ekovibe',
+              },
+              To: [
+                {
+                  Email: ticket.user.email,
+                  Name: ticket.user.firstName,
+                },
+              ],
+              Subject: `Entry Confirmed — ${ticket.order.event.title}`,
+              HTMLPart: EntryConfirmedEmail({
+                firstName: ticket.user.firstName,
+                eventTitle: ticket.order.event.title,
+                tierName: ticket.orderItem.ticketTier.name,
+                ticketCode: ticket.code,
+                scannedAt: usedAt.toLocaleString('en-NG', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              }),
+            },
+          ],
+        });
+    } catch {
+      // Email failure should not block scan response
+    }
 
     return {
       valid: true,

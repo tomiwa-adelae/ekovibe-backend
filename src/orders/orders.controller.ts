@@ -45,6 +45,11 @@ export class OrdersController {
     return this.ordersService.getUserTickets(req.user.id);
   }
 
+  @Get('orders/my-tickets/:code')
+  getMyTicketByCode(@Param('code') code: string, @Request() req) {
+    return this.ordersService.getUserTicketByCode(code, req.user.id);
+  }
+
   // ── Admin routes ──────────────────────────────────────────────────────────
 
   @Get('a/orders')

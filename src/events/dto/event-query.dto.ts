@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsInt, Min } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsInt, Min, IsIn, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EventCategory, EventStatus } from 'generated/prisma/client';
 
@@ -14,6 +14,18 @@ export class EventQueryDto {
   @IsOptional()
   @IsEnum(EventStatus)
   status?: EventStatus;
+
+  @IsOptional()
+  @IsIn(['date_asc', 'date_desc'])
+  sortBy?: 'date_asc' | 'date_desc';
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
 
   @IsOptional()
   @Type(() => Number)

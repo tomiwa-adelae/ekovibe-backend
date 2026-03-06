@@ -178,24 +178,27 @@ export class AuthService {
         password: hashedPassword,
         username,
         role: 'USER',
+        userTier: registerUserDto.tier,
       },
     });
 
-    await getMailjet().post('send', { version: 'v3.1' }).request({
-      Messages: [
-        {
-          From: {
-            Email: process.env.SENDER_EMAIL_ADDRESS,
-            Name: 'Nuvylux',
+    await getMailjet()
+      .post('send', { version: 'v3.1' })
+      .request({
+        Messages: [
+          {
+            From: {
+              Email: process.env.SENDER_EMAIL_ADDRESS,
+              Name: 'Ekovibe',
+            },
+            To: [{ Email: user.email, Name: user.firstName }],
+            Subject: `Welcome to Ekovibe, ${user.firstName}`,
+            HTMLPart: WelcomeEmail({
+              firstName: user.firstName,
+            }),
           },
-          To: [{ Email: user.email, Name: user.firstName }],
-          Subject: `Welcome to Nuvylux, ${user.firstName}`,
-          HTMLPart: WelcomeEmail({
-            firstName: user.firstName,
-          }),
-        },
-      ],
-    });
+        ],
+      });
 
     const { password, refreshToken, ...result } = user;
     return this.login(result);
@@ -213,6 +216,7 @@ export class AuthService {
         updatedAt: true,
         role: true,
         onboardingCompleted: true,
+        userTier: true,
       },
     });
 
@@ -280,7 +284,7 @@ export class AuthService {
       where: { email, ...notDeleted() },
     });
 
-    if (!user) throw new NotFoundException('No account with that email');
+    if (!user) throw new BadRequestException('No account with that email');
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = new Date(Date.now() + 10 * 60 * 1000);
@@ -291,22 +295,24 @@ export class AuthService {
       data: { resetOTP: hashedOTP, resetOTPExpiry: expiry },
     });
 
-    await getMailjet().post('send', { version: 'v3.1' }).request({
-      Messages: [
-        {
-          From: {
-            Email: process.env.SENDER_EMAIL_ADDRESS,
-            Name: 'Nuvylux',
+    await getMailjet()
+      .post('send', { version: 'v3.1' })
+      .request({
+        Messages: [
+          {
+            From: {
+              Email: process.env.SENDER_EMAIL_ADDRESS,
+              Name: 'Ekovibe',
+            },
+            To: [{ Email: email, Name: user.firstName }],
+            Subject: `Password Reset Code`,
+            HTMLPart: ForgotPasswordEmail({
+              firstName: user.firstName,
+              otp,
+            }),
           },
-          To: [{ Email: email, Name: user.firstName }],
-          Subject: `Password Reset Code`,
-          HTMLPart: ForgotPasswordEmail({
-            firstName: user.firstName,
-            otp,
-          }),
-        },
-      ],
-    });
+        ],
+      });
 
     return { message: 'Password reset OTP sent to your email' };
   }
@@ -388,6 +394,74 @@ export class AuthService {
 
     const { refreshToken: _omit, ...safeUser } = user;
     return { accessToken, newRefreshToken, user: safeUser };
+  }
+
+  // ── Update Profile ─────────────────────────────────────────────────────────
+  async updateProfile(userId: string, dto: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber?: string;
+    gender?: string;
+    dob?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  }) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        phoneNumber: dto.phoneNumber,
+        gender: dto.gender,
+        dob: dto.dob,
+        address: dto.address,
+        city: dto.city,
+        state: dto.state,
+        country: dto.country,
+      },
+      include: { admin: true },
+    });
+
+    const { password, refreshToken, ...safe } = user;
+    return plainToClass(
+      UserResponseDto,
+      { ...safe, isAdmin: !!user.admin },
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  // ── Change Password ────────────────────────────────────────────────────────
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) {
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.password) {
+      throw new BadRequestException('Cannot change password for this account');
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
+
+    return { message: 'Password updated successfully' };
   }
 
   // Expose session duration in ms so the controller can set consistent cookie maxAge

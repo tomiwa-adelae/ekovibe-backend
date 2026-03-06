@@ -10,8 +10,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─── User & Auth ──────────────────────────────────────────────────────────────
-
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -21,6 +19,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   role         String
+
+  userTier String? @default("standard")
 
   firstName String
   lastName  String
@@ -189,6 +189,36 @@ model Ticket {
   order     Order     @relation(fields: [orderId], references: [id])
   orderItem OrderItem @relation(fields: [orderItemId], references: [id])
   user      User      @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Membership Applications ──────────────────────────────────────────────────
+
+enum MembershipTier {
+  GOLD
+  BLACK
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  APPROVED
+  REJECTED
+}
+
+model MembershipApplication {
+  id         String            @id @default(uuid())
+  fullName   String
+  email      String
+  phone      String
+  occupation String
+  city       String
+  tier       MembershipTier
+  referral   String?
+  message    String?
+  status     ApplicationStatus @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

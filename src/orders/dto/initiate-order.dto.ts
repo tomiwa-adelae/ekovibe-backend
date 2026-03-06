@@ -1,18 +1,32 @@
-import { IsString, IsNotEmpty, IsInt, Min, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsInt,
+  Min,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class OrderItemDto {
+  @IsString()
+  @IsNotEmpty()
+  tierId: string;
+
+  @IsInt()
+  @Min(1)
+  quantity: number;
+}
 
 export class InitiateOrderDto {
   @IsString()
   @IsNotEmpty()
   eventId: string;
 
-  @IsString()
-  @IsNotEmpty()
-  tierId: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  quantity?: number = 1;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items: OrderItemDto[];
 }

@@ -4,7 +4,7 @@ export const WelcomeEmail = ({ firstName }: { firstName: string }) => {
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Welcome to Nuvylux</title>
+    <title>Welcome to Ekovibe</title>
     <style>
       body { 
         font-family: 'Playfair Display', 'Georgia', serif; 
@@ -84,24 +84,24 @@ export const WelcomeEmail = ({ firstName }: { firstName: string }) => {
     <div class="wrapper">
       <div class="container">
         <div class="header">
-          <h1>Nuvylux</h1>
+          <h1>Ekovibe</h1>
         </div>
         <div class="content">
           <h2>Welcome to the Movement, ${firstName}.</h2>
-          <p>You have successfully entered the <span class="accent">Nuvylux Global</span> ecosystem—the new light of luxury where beauty, fashion, and innovation unite.</p>
-          <p>Your account is now active. You are invited to explore our verified marketplace, experience our AI-powered skincare intelligence, and connect with a global community of creators.</p>
-          
+          <p>Your Ekovibe account is now active. You're now part of Lagos' premier lifestyle platform — your gateway to exclusive events, curated nightlife, and experiences that define the culture.</p>
+          <p>Browse upcoming events, secure your tickets, and access your passes from your personal dashboard.</p>
+
           <div class="btn-container">
-            <a href="${process.env.FRONTEND_URL}/dashboard" class="btn">Access Your Dashboard</a>
+            <a href="${process.env.FRONTEND_URL}/ticketing" class="btn">Explore Experiences</a>
           </div>
 
-          <p style="margin-top: 40px;">Stay visionary,</p>
-          <p><strong>The Nuvylux Team</strong></p>
+          <p style="margin-top: 40px;">See you at the door,</p>
+          <p><strong>The Ekovibe Team</strong></p>
         </div>
         <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} Nuvylux Global | AURANOVA Group</p>
-          <p>Lagos • Abuja • Ibadan</p>
-          <p>If you did not create this account, please <a href="mailto:support@nuvylux.com">contact support</a>.</p>
+          <p>&copy; ${new Date().getFullYear()} Ekovibes Lifestyle Group</p>
+          <p>Lagos &bull; Abuja &bull; Ibadan</p>
+          <p>If you did not create this account, please <a href="mailto:the9ineagency@gmail.com">contact support</a>.</p>
         </div>
       </div>
     </div>

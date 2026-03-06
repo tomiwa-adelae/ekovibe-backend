@@ -16,12 +16,26 @@ async function bootstrap() {
     }),
   );
 
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:3001',
+    'http://192.168.1.250:3000',
+    'http://192.168.0.109:3000',
+  ].filter(Boolean);
+
   app.enableCors({
-    origin:
-      process.env.FRONTEND_URL ||
-      'http://localhost:3001' ||
-      'http://192.168.1.250:3000',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
 
   await app.listen(process.env.PORT ?? 3000);

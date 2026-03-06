@@ -2,6 +2,7 @@ import {
   IsBoolean,
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -33,4 +34,8 @@ export class RegisterUserDto {
 
   @IsBoolean()
   acceptTerms: boolean;
+
+  @IsString()
+  @IsOptional()
+  tier: string;
 }

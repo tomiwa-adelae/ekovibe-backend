@@ -20,6 +20,9 @@ export class UserResponseDto {
   createdAt: string;
 
   @Expose()
+  userTier: string;
+
+  @Expose()
   updatedAt: string;
 
   @Exclude()
