@@ -18,6 +18,7 @@ async function bootstrap() {
 
   const allowedOrigins = [
     process.env.FRONTEND_URL,
+    'https://www.ekovibe.com.ng',
     'http://localhost:3001',
     'http://192.168.1.250:3000',
     'http://192.168.0.109:3000',
