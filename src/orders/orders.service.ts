@@ -40,7 +40,7 @@ function generateTicketCode(eventTitle: string): string {
   return `${abbrev}-${random}`;
 }
 
-const SERVICE_FEE_PER_TICKET = 250000; // ₦2,500 in kobo
+const SERVICE_FEE_PER_TICKET = 15000; // ₦2,500 in kobo
 
 @Injectable()
 export class OrdersService {

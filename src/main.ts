@@ -40,8 +40,9 @@ async function bootstrap() {
   //   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   // });
   app.enableCors({
-    origin: 'https://www.ekovibe.com.ng',
-    // process.env.FRONTEND_URL ||
+    origin:
+      // 'https://www.ekovibe.com.ng',
+      process.env.FRONTEND_URL,
     // 'http://localhost:3001' ||
     // 'http://192.168.1.250:3000',
     credentials: true,
