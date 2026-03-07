@@ -73,7 +73,7 @@ export class AuthService {
     return {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? ('none' as const) : ('lax' as const),
+      sameSite: 'lax' as const,
       path: '/',
     };
   }
