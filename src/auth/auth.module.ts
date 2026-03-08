@@ -7,6 +7,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { LocalStrategy } from './strategies/local.strategies';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { AdminGuard } from 'src/guards/admin.guard';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -15,6 +16,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuthService,
     TokenService,
     JwtAuthGuard,
+    AdminGuard,
     PrismaService,
     LocalStrategy,
     JwtStrategy,

@@ -10,7 +10,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { AdminGuard } from 'src/guards/admin.guard';
 
 @Controller('upload')
 @UseGuards(JwtAuthGuard)
@@ -28,7 +27,6 @@ export class UploadController {
   }
 
   @Post('event-cover')
-  @UseGuards(AdminGuard)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   async uploadEventCover(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');

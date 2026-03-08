@@ -63,6 +63,19 @@ export class OrdersService {
       throw new BadRequestException('This event is not currently available');
     }
 
+    // Member-only gate — check user has an active membership tier
+    if (event.isMemberOnly) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { userTier: true },
+      });
+      if (!user?.userTier) {
+        throw new ForbiddenException(
+          'This event is exclusive to Ekovibe members',
+        );
+      }
+    }
+
     // Validate all requested tiers and check stock
     const tiers = await this.prisma.ticketTier.findMany({
       where: { id: { in: dto.items.map((i) => i.tierId) } },
@@ -218,25 +231,46 @@ export class OrdersService {
       }
     }
 
-    // Fulfill in a transaction: update order, increment sold, create tickets
-    const [updatedOrder, , tickets] = await this.prisma.$transaction([
-      this.prisma.order.update({
+    // Fulfill in a single transaction: update order, increment sold, create tickets, credit vendor wallet
+    const vendorId = order.event.createdById;
+    const [updatedOrder, tickets] = await this.prisma.$transaction(async (tx) => {
+      // 1. Mark order as paid
+      const paid = await tx.order.update({
         where: { id: order.id },
         data: {
           status: OrderStatus.PAID,
           paystackReference: paystackData.reference,
           paystackData: paystackData as any,
         },
-      }),
-      // Increment sold count for each tier
-      ...order.items.map((item) =>
-        this.prisma.ticketTier.update({
-          where: { id: item.ticketTierId },
-          data: { sold: { increment: item.quantity } },
-        }),
-      ),
-      this.prisma.ticket.createMany({ data: ticketData }),
-    ]);
+      });
+
+      // 2. Increment sold count for each tier
+      await Promise.all(
+        order.items.map((item) =>
+          tx.ticketTier.update({
+            where: { id: item.ticketTierId },
+            data: { sold: { increment: item.quantity } },
+          }),
+        ),
+      );
+
+      // 3. Issue tickets
+      await tx.ticket.createMany({ data: ticketData });
+      const issued = await tx.ticket.findMany({
+        where: { orderId: order.id },
+        include: { orderItem: { include: { ticketTier: true } } },
+      });
+
+      // 4. Credit vendor wallet — inside the transaction so wallet credit
+      //    only happens if the entire fulfillment succeeds, and never twice.
+      await tx.vendorWallet.upsert({
+        where: { vendorId },
+        create: { vendorId, balance: order.subtotal },
+        update: { balance: { increment: order.subtotal } },
+      });
+
+      return [paid, issued] as const;
+    });
 
     // Check if event is now sold out
     await this.checkAndUpdateSoldOutStatus(order.eventId);
@@ -409,6 +443,132 @@ export class OrdersService {
                   Name: ticket.user.firstName,
                 },
               ],
+              Subject: `Entry Confirmed — ${ticket.order.event.title}`,
+              HTMLPart: EntryConfirmedEmail({
+                firstName: ticket.user.firstName,
+                eventTitle: ticket.order.event.title,
+                tierName: ticket.orderItem.ticketTier.name,
+                ticketCode: ticket.code,
+                scannedAt: usedAt.toLocaleString('en-NG', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              }),
+            },
+          ],
+        });
+    } catch {
+      // Email failure should not block scan response
+    }
+
+    return {
+      valid: true,
+      holder: `${ticket.user.firstName} ${ticket.user.lastName}`,
+      tier: ticket.orderItem.ticketTier.name,
+      event: ticket.order.event.title,
+    };
+  }
+
+  // ── Vendor attendee list ──────────────────────────────────────────────────
+
+  async getVendorEventAttendees(eventId: string, vendorId: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { createdById: true },
+    });
+    if (!event) throw new NotFoundException('Event not found');
+    if (event.createdById !== vendorId)
+      throw new ForbiddenException('Access denied');
+
+    const tickets = await this.prisma.ticket.findMany({
+      where: { order: { eventId } },
+      include: {
+        user: { select: { firstName: true, lastName: true, email: true } },
+        orderItem: { include: { ticketTier: { select: { name: true } } } },
+        order: { select: { reference: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const checkedIn = tickets.filter((t) => t.isUsed).length;
+
+    return {
+      total: tickets.length,
+      checkedIn,
+      tickets: tickets.map((t) => ({
+        id: t.id,
+        code: t.code,
+        holder: `${t.user.firstName} ${t.user.lastName}`,
+        email: t.user.email,
+        tier: t.orderItem.ticketTier.name,
+        isUsed: t.isUsed,
+        usedAt: t.usedAt,
+        orderRef: t.order.reference,
+      })),
+    };
+  }
+
+  // ── Vendor ticket methods ─────────────────────────────────────────────────
+
+  async getVendorTicketByCode(code: string, vendorId: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { code },
+      include: {
+        user: { select: { firstName: true, lastName: true, email: true } },
+        order: { include: { event: true } },
+        orderItem: { include: { ticketTier: true } },
+      },
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (ticket.order.event.createdById !== vendorId)
+      throw new ForbiddenException('Access denied');
+    return ticket;
+  }
+
+  async scanVendorTicket(code: string, vendorId: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { code },
+      include: {
+        user: { select: { firstName: true, lastName: true, email: true } },
+        order: { include: { event: { select: { title: true, createdById: true } } } },
+        orderItem: { include: { ticketTier: { select: { name: true } } } },
+      },
+    });
+
+    if (!ticket) throw new NotFoundException('Invalid ticket code');
+    if (ticket.order.event.createdById !== vendorId)
+      throw new ForbiddenException('Access denied');
+
+    if (ticket.isUsed) {
+      return {
+        valid: false,
+        reason: 'ALREADY_USED',
+        usedAt: ticket.usedAt,
+        holder: `${ticket.user.firstName} ${ticket.user.lastName}`,
+        tier: ticket.orderItem.ticketTier.name,
+        event: ticket.order.event.title,
+      };
+    }
+
+    const usedAt = new Date();
+    await this.prisma.ticket.update({
+      where: { id: ticket.id },
+      data: { isUsed: true, usedAt },
+    });
+
+    try {
+      await getMailjet()
+        .post('send', { version: 'v3.1' })
+        .request({
+          Messages: [
+            {
+              From: { Email: process.env.SENDER_EMAIL_ADDRESS, Name: 'Ekovibe' },
+              To: [{ Email: ticket.user.email, Name: ticket.user.firstName }],
               Subject: `Entry Confirmed — ${ticket.order.event.title}`,
               HTMLPart: EntryConfirmedEmail({
                 firstName: ticket.user.firstName,

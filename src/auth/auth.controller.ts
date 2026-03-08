@@ -1,10 +1,13 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
   Patch,
   Post,
+  Query,
   Req,
   Request,
   Res,
@@ -21,6 +24,8 @@ import { SetNewPasswordDto } from './dto/set-new-password.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CurrentUser } from 'src/decorators/current-user.decorator';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
+import { AdminGuard } from 'src/guards/admin.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -157,6 +162,16 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('onboarding')
+  @HttpCode(HttpStatus.OK)
+  async completeOnboarding(
+    @CurrentUser() currentUser: any,
+    @Body() dto: CompleteOnboardingDto,
+  ) {
+    return this.authService.completeOnboarding(currentUser.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Patch('profile')
   @HttpCode(HttpStatus.OK)
   async updateProfile(
@@ -164,6 +179,22 @@ export class AuthController {
     @Body() dto: UpdateUserProfileDto,
   ) {
     return this.authService.updateProfile(currentUser.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('vendor-profile')
+  async getVendorProfile(@CurrentUser() currentUser: any) {
+    return this.authService.getVendorProfile(currentUser.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('vendor-profile')
+  @HttpCode(HttpStatus.OK)
+  async updateVendorProfile(
+    @CurrentUser() currentUser: any,
+    @Body() dto: { brandName?: string; brandBio?: string; website?: string; instagram?: string; logoUrl?: string },
+  ) {
+    return this.authService.updateVendorProfile(currentUser.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -179,5 +210,27 @@ export class AuthController {
       dto.newPassword,
       dto.confirmPassword,
     );
+  }
+
+  // ── Admin: vendor management ───────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('a/vendors/:id')
+  getAdminVendorById(@Param('id') id: string) {
+    return this.authService.getAdminVendorById(id);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('a/vendors')
+  getAdminVendors(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.authService.getAdminVendors({
+      search,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 }

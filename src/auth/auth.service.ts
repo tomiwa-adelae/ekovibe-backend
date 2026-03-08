@@ -14,6 +14,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { notDeleted } from 'src/utils/prismaFilters';
 import { RegisterUserDto } from './dto/register-user.dto';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 import { WelcomeEmail } from 'emails/welcome-email';
 import { ForgotPasswordEmail } from 'emails/forgot-password-email';
 
@@ -141,7 +142,11 @@ export class AuthService {
       refresh_token: refreshToken,
       user: plainToClass(
         UserResponseDto,
-        { ...updatedUser, isAdmin: !!updatedUser.admin },
+        {
+          ...updatedUser,
+          isAdmin: !!updatedUser.admin,
+          isVendor: updatedUser.role === 'VENDOR',
+        },
         { excludeExtraneousValues: true },
       ),
     };
@@ -397,18 +402,21 @@ export class AuthService {
   }
 
   // ── Update Profile ─────────────────────────────────────────────────────────
-  async updateProfile(userId: string, dto: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phoneNumber?: string;
-    gender?: string;
-    dob?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-  }) {
+  async updateProfile(
+    userId: string,
+    dto: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phoneNumber?: string;
+      gender?: string;
+      dob?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+    },
+  ) {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -429,7 +437,7 @@ export class AuthService {
     const { password, refreshToken, ...safe } = user;
     return plainToClass(
       UserResponseDto,
-      { ...safe, isAdmin: !!user.admin },
+      { ...safe, isAdmin: !!user.admin, isVendor: user.role === 'VENDOR' },
       { excludeExtraneousValues: true },
     );
   }
@@ -464,8 +472,215 @@ export class AuthService {
     return { message: 'Password updated successfully' };
   }
 
+  // ── Complete Onboarding ────────────────────────────────────────────────────
+  async completeOnboarding(userId: string, dto: CompleteOnboardingDto) {
+    if (dto.accountType === 'vendor') {
+      if (!dto.brandName)
+        throw new BadRequestException('Brand name is required');
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          role: 'VENDOR',
+          onboardingCompleted: true,
+          interests: dto.interests ?? [],
+          vendorProfile: {
+            create: {
+              brandName: dto.brandName,
+              brandBio: dto.brandBio,
+              website: dto.website,
+              instagram: dto.instagram,
+            },
+          },
+        },
+      });
+    } else {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          role: 'USER',
+          onboardingCompleted: true,
+          interests: dto.interests ?? [],
+        },
+      });
+    }
+
+    const updated = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { admin: true, vendorProfile: true },
+    });
+
+    return plainToClass(
+      UserResponseDto,
+      {
+        ...updated,
+        isAdmin: !!updated?.admin,
+        isVendor: updated?.role === 'VENDOR',
+      },
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  // ── Get / Update Vendor Profile ────────────────────────────────────────────
+  async getVendorProfile(userId: string) {
+    const profile = await this.prisma.vendorProfile.findUnique({
+      where: { userId },
+    });
+    if (!profile) throw new NotFoundException('Vendor profile not found');
+    return profile;
+  }
+
+  async updateVendorProfile(
+    userId: string,
+    dto: {
+      brandName?: string;
+      brandBio?: string;
+      website?: string;
+      instagram?: string;
+      logoUrl?: string;
+    },
+  ) {
+    const profile = await this.prisma.vendorProfile.findUnique({
+      where: { userId },
+    });
+    if (!profile) throw new NotFoundException('Vendor profile not found');
+
+    return this.prisma.vendorProfile.update({
+      where: { userId },
+      data: {
+        ...(dto.brandName !== undefined && { brandName: dto.brandName }),
+        ...(dto.brandBio !== undefined && { brandBio: dto.brandBio }),
+        ...(dto.website !== undefined && { website: dto.website }),
+        ...(dto.instagram !== undefined && { instagram: dto.instagram }),
+        ...(dto.logoUrl !== undefined && { logoUrl: dto.logoUrl }),
+      },
+    });
+  }
+
   // Expose session duration in ms so the controller can set consistent cookie maxAge
   getSessionMs(): number {
     return SESSION_MS;
+  }
+
+  // ── Admin: vendor management ───────────────────────────────────────────────
+  async getAdminVendorById(id: string) {
+    const vendor = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        vendorProfile: true,
+        wallet: true,
+        events: {
+          orderBy: { createdAt: 'desc' },
+        },
+        withdrawalRequests: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+      },
+    });
+    if (!vendor || vendor.role !== 'VENDOR') {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    const [revenueKobo, ticketsSold] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { event: { createdById: id }, status: 'PAID' },
+        _sum: { subtotal: true },
+      }),
+      this.prisma.ticketTier.aggregate({
+        where: { event: { createdById: id } },
+        _sum: { sold: true },
+      }),
+    ]);
+
+    const eventsWithRevenue = await Promise.all(
+      vendor.events.map(async (event) => {
+        const [rev, sold] = await Promise.all([
+          this.prisma.order.aggregate({
+            where: { eventId: event.id, status: 'PAID' },
+            _sum: { subtotal: true },
+          }),
+          this.prisma.ticketTier.aggregate({
+            where: { eventId: event.id },
+            _sum: { sold: true },
+          }),
+        ]);
+        return {
+          ...event,
+          totalRevenue: rev._sum.subtotal ?? 0,
+          totalSold: sold._sum.sold ?? 0,
+        };
+      }),
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, refreshToken, ...safe } = vendor as typeof vendor & Record<string, any>;
+    return {
+      ...safe,
+      events: eventsWithRevenue,
+      totalEvents: vendor.events.length,
+      totalTicketsSold: ticketsSold._sum.sold ?? 0,
+      totalRevenue: revenueKobo._sum.subtotal ?? 0,
+      walletBalance: vendor.wallet?.balance ?? 0,
+    };
+  }
+
+  async getAdminVendors(query: { search?: string; page?: number; limit?: number }) {
+    const { search, page = 1, limit = 20 } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = { role: 'VENDOR', isDeleted: false };
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { vendorProfile: { brandName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [vendors, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        include: {
+          vendorProfile: true,
+          wallet: true,
+          _count: { select: { events: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    // Attach total revenue per vendor
+    const vendorsWithStats = await Promise.all(
+      vendors.map(async (v) => {
+        const [ticketsSold, revenueKobo] = await Promise.all([
+          this.prisma.ticketTier.aggregate({
+            where: { event: { createdById: v.id } },
+            _sum: { sold: true },
+          }),
+          this.prisma.order.aggregate({
+            where: { event: { createdById: v.id }, status: 'PAID' },
+            _sum: { subtotal: true },
+          }),
+        ]);
+        const { password, refreshToken, ...safe } = v as any;
+        return {
+          ...safe,
+          totalEvents: v._count.events,
+          totalTicketsSold: ticketsSold._sum.sold ?? 0,
+          totalRevenue: revenueKobo._sum.subtotal ?? 0,
+          walletBalance: v.wallet?.balance ?? 0,
+        };
+      }),
+    );
+
+    return {
+      data: vendorsWithStats,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 }

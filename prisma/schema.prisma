@@ -49,10 +49,14 @@ model User {
 
   interests String[]
 
-  admin   Admin?
-  events  Event[]
-  orders  Order[]
-  tickets Ticket[]
+  admin               Admin?
+  vendorProfile       VendorProfile?
+  events              Event[]
+  orders              Order[]
+  tickets             Ticket[]
+  wallet              VendorWallet?
+  withdrawalRequests  WithdrawalRequest[]
+  reservations        Reservation[]
 }
 
 enum AdminPosition {
@@ -68,6 +72,19 @@ model Admin {
   updatedAt DateTime      @updatedAt
   position  AdminPosition @default(ADMIN)
   user      User          @relation(fields: [userId], references: [id])
+}
+
+model VendorProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  brandName String
+  brandBio  String?
+  website   String?
+  instagram String?
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 // ─── Events & Ticketing ───────────────────────────────────────────────────────
@@ -89,6 +106,8 @@ enum EventStatus {
   SOLD_OUT
   CANCELLED
   ENDED
+  PENDING_REVIEW
+  REJECTED
 }
 
 model Event {
@@ -105,7 +124,8 @@ model Event {
   venueAddress String?
   city         String?
   dressCode    String?
-  isMemberOnly Boolean       @default(false)
+  isMemberOnly    Boolean     @default(false)
+  rejectionReason String?
 
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
@@ -194,6 +214,40 @@ model Ticket {
   updatedAt DateTime @updatedAt
 }
 
+// ─── Vendor Wallet & Payouts ──────────────────────────────────────────────────
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  TRANSFERRED
+}
+
+model VendorWallet {
+  id        String   @id @default(uuid())
+  vendorId  String   @unique
+  balance   Int      @default(0) // in kobo
+  updatedAt DateTime @updatedAt
+
+  vendor User @relation(fields: [vendorId], references: [id])
+}
+
+model WithdrawalRequest {
+  id            String           @id @default(uuid())
+  vendorId      String
+  amount        Int // in kobo
+  bankCode      String
+  accountNumber String
+  accountName   String
+  status        WithdrawalStatus @default(PENDING)
+  paystackRef   String?
+  note          String? // admin note on approve/reject
+  createdAt     DateTime         @default(now())
+  resolvedAt    DateTime?
+
+  vendor User @relation(fields: [vendorId], references: [id])
+}
+
 // ─── Membership Applications ──────────────────────────────────────────────────
 
 enum MembershipTier {
@@ -209,16 +263,72 @@ enum ApplicationStatus {
 }
 
 model MembershipApplication {
-  id         String            @id @default(uuid())
-  fullName   String
-  email      String
-  phone      String
-  occupation String
-  city       String
-  tier       MembershipTier
-  referral   String?
-  message    String?
-  status     ApplicationStatus @default(PENDING)
+  id          String            @id @default(uuid())
+  fullName    String
+  email       String
+  phone       String
+  occupation  String
+  city        String
+  tier        MembershipTier
+  referral    String?
+  message     String?
+  status      ApplicationStatus @default(PENDING)
+  paystackRef String? // set when payment link is generated
+  paidAt      DateTime? // set when payment is verified
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── The Black Book (Reservations) ────────────────────────────────────────────
+
+enum VenueType {
+  RESTAURANT
+  NIGHTCLUB
+  LOUNGE
+  PRIVATE_DINING
+  ROOFTOP
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+model Venue {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  type        VenueType
+  address     String
+  city        String
+  coverImage  String?
+  instagram   String?
+  website     String?
+  isActive    Boolean   @default(true)
+
+  reservations Reservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Reservation {
+  id        String            @id @default(uuid())
+  venueId   String
+  userId    String
+  date      DateTime
+  time      String
+  partySize Int
+  notes     String?
+  status    ReservationStatus @default(PENDING)
+  adminNote String?
+
+  venue Venue @relation(fields: [venueId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

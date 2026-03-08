@@ -69,4 +69,7 @@ export class UserResponseDto {
 
   @Expose()
   isAdmin?: boolean;
+
+  @Expose()
+  isVendor?: boolean;
 }
