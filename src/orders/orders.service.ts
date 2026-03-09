@@ -198,6 +198,7 @@ export class OrdersService {
                   firstName: order.user.firstName,
                   eventTitle: order.event.title,
                   orderReference: order.reference,
+                  eventImageUrl: order.event.coverImage ?? undefined,
                 }),
               },
             ],
@@ -311,6 +312,7 @@ export class OrdersService {
                   code: t.code,
                   tierName: t.orderItem.ticketTier.name,
                 })),
+                eventImageUrl: order.event.coverImage ?? undefined,
               }),
             },
           ],
@@ -401,7 +403,7 @@ export class OrdersService {
       where: { code },
       include: {
         user: { select: { firstName: true, lastName: true, email: true } },
-        order: { include: { event: { select: { title: true } } } },
+        order: { include: { event: { select: { title: true, coverImage: true } } } },
         orderItem: { include: { ticketTier: { select: { name: true } } } },
       },
     });
@@ -457,6 +459,7 @@ export class OrdersService {
                   hour: '2-digit',
                   minute: '2-digit',
                 }),
+                eventImageUrl: ticket.order.event.coverImage ?? undefined,
               }),
             },
           ],
@@ -535,7 +538,7 @@ export class OrdersService {
       where: { code },
       include: {
         user: { select: { firstName: true, lastName: true, email: true } },
-        order: { include: { event: { select: { title: true, createdById: true } } } },
+        order: { include: { event: { select: { title: true, createdById: true, coverImage: true } } } },
         orderItem: { include: { ticketTier: { select: { name: true } } } },
       },
     });
@@ -583,6 +586,7 @@ export class OrdersService {
                   hour: '2-digit',
                   minute: '2-digit',
                 }),
+                eventImageUrl: ticket.order.event.coverImage ?? undefined,
               }),
             },
           ],
