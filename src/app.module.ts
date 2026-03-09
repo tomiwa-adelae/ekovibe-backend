@@ -9,6 +9,7 @@ import { UploadModule } from './upload/upload.module';
 import { MembershipModule } from './membership/membership.module';
 import { WalletModule } from './wallet/wallet.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ReservationsModule } from './reservations/reservations.module';
     MembershipModule,
     WalletModule,
     ReservationsModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

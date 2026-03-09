@@ -57,6 +57,7 @@ model User {
   wallet              VendorWallet?
   withdrawalRequests  WithdrawalRequest[]
   reservations        Reservation[]
+  posts               Post[]
 }
 
 enum AdminPosition {
@@ -275,6 +276,40 @@ model MembershipApplication {
   status      ApplicationStatus @default(PENDING)
   paystackRef String? // set when payment link is generated
   paidAt      DateTime? // set when payment is verified
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Vibe Report (Media / Blog) ───────────────────────────────────────────────
+
+enum PostCategory {
+  NEWS
+  BLOG
+  LIFESTYLE
+  MUSIC
+  EVENTS
+  OTHER
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Post {
+  id          String       @id @default(uuid())
+  title       String
+  slug        String       @unique
+  excerpt     String?
+  body        String
+  coverImage  String?
+  category    PostCategory @default(OTHER)
+  status      PostStatus   @default(DRAFT)
+  tags        String[]
+  publishedAt DateTime?
+  authorId    String
+  author      User         @relation(fields: [authorId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
