@@ -53,7 +53,9 @@ export function WithdrawalRejectedEmail({
                 ${firstName}, your withdrawal request of <strong style="color:#1C1A14;">${amount}</strong> could not be processed at this time. Your wallet balance has been fully restored.
               </p>
 
-              ${note ? `
+              ${
+                note
+                  ? `
               <p style="margin:0 0 10px;font-size:10px;letter-spacing:0.2em;color:#9E9892;text-transform:uppercase;font-weight:600;">Note from the team</p>
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
                 <tr>
@@ -62,7 +64,9 @@ export function WithdrawalRejectedEmail({
                   </td>
                 </tr>
               </table>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <p style="margin:0 0 28px;font-size:13px;color:#6B6560;line-height:1.7;">
                 The full amount has been credited back to your Ekovibe wallet. You may submit a new withdrawal request once any issues are resolved.
@@ -91,7 +95,7 @@ export function WithdrawalRejectedEmail({
             <td style="background:#F9F7F3;border-top:1px solid #E8E2D9;padding:28px 40px;text-align:center;border-radius:0 0 20px 20px;">
               <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.25em;color:#C9A84C;text-transform:uppercase;">EKOVIBE</p>
               <p style="margin:0 0 8px;font-size:11px;color:#9E9892;">Lagos &bull; Abuja &bull; Ibadan</p>
-              <p style="margin:0;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} Ekovibes Lifestyle Group</p>
+              <p style="margin:0;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} ekovibe Lifestyle Group</p>
             </td>
           </tr>
 

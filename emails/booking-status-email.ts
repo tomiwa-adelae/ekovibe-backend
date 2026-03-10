@@ -17,14 +17,42 @@ export const BookingStatusEmail = ({
   ctaText,
   ctaUrl,
 }: BookingStatusEmailProps) => {
-  const statusConfig: Record<string, { bg: string; border: string; text: string; label: string }> = {
-    CONFIRMED:   { bg: '#ECFDF5', border: '#BBF7D0', text: '#16803C', label: 'Confirmed' },
-    IN_PROGRESS: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', label: 'In Progress' },
-    COMPLETED:   { bg: '#ECFDF5', border: '#BBF7D0', text: '#15803D', label: 'Completed' },
-    CANCELLED:   { bg: '#FEF2F2', border: '#FECACA', text: '#DC2626', label: 'Cancelled' },
+  const statusConfig: Record<
+    string,
+    { bg: string; border: string; text: string; label: string }
+  > = {
+    CONFIRMED: {
+      bg: '#ECFDF5',
+      border: '#BBF7D0',
+      text: '#16803C',
+      label: 'Confirmed',
+    },
+    IN_PROGRESS: {
+      bg: '#EFF6FF',
+      border: '#BFDBFE',
+      text: '#1D4ED8',
+      label: 'In Progress',
+    },
+    COMPLETED: {
+      bg: '#ECFDF5',
+      border: '#BBF7D0',
+      text: '#15803D',
+      label: 'Completed',
+    },
+    CANCELLED: {
+      bg: '#FEF2F2',
+      border: '#FECACA',
+      text: '#DC2626',
+      label: 'Cancelled',
+    },
   };
 
-  const cfg = statusConfig[newStatus] ?? { bg: '#F9F7F3', border: '#E8E2D9', text: '#6B6560', label: newStatus.replace('_', ' ') };
+  const cfg = statusConfig[newStatus] ?? {
+    bg: '#F9F7F3',
+    border: '#E8E2D9',
+    text: '#6B6560',
+    label: newStatus.replace('_', ' '),
+  };
 
   return `
 <!DOCTYPE html>
@@ -91,7 +119,9 @@ export const BookingStatusEmail = ({
                 </tr>
               </table>
 
-              ${ctaText && ctaUrl ? `
+              ${
+                ctaText && ctaUrl
+                  ? `
               <!-- CTA -->
               <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
@@ -103,7 +133,9 @@ export const BookingStatusEmail = ({
                   </td>
                 </tr>
               </table>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <p style="margin:0 0 4px;font-size:14px;color:#6B6560;">Best regards,</p>
               <p style="margin:0;font-size:14px;font-weight:700;color:#1C1A14;">The Ekovibe Team</p>
@@ -115,7 +147,7 @@ export const BookingStatusEmail = ({
             <td style="background:#F9F7F3;border-top:1px solid #E8E2D9;padding:28px 40px;text-align:center;border-radius:0 0 20px 20px;">
               <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.25em;color:#C9A84C;text-transform:uppercase;">EKOVIBE</p>
               <p style="margin:0 0 8px;font-size:11px;color:#9E9892;">Lagos &bull; Abuja &bull; Ibadan</p>
-              <p style="margin:0 0 6px;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} Ekovibes Lifestyle Group</p>
+              <p style="margin:0 0 6px;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} ekovibe Lifestyle Group</p>
               <p style="margin:0;font-size:11px;color:#B8B0A8;">If you have any questions, please <a href="mailto:the9ineagency@gmail.com" style="color:#C9A84C;text-decoration:none;">contact support</a>.</p>
             </td>
           </tr>

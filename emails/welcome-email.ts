@@ -90,7 +90,7 @@ export const WelcomeEmail = ({ firstName }: { firstName: string }) => {
             <td style="background:#F9F7F3;border-top:1px solid #E8E2D9;padding:28px 40px;text-align:center;border-radius:0 0 20px 20px;">
               <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.25em;color:#C9A84C;text-transform:uppercase;">EKOVIBE</p>
               <p style="margin:0 0 8px;font-size:11px;color:#9E9892;">Lagos &bull; Abuja &bull; Ibadan</p>
-              <p style="margin:0 0 6px;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} Ekovibes Lifestyle Group</p>
+              <p style="margin:0 0 6px;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} ekovibe Lifestyle Group</p>
               <p style="margin:0;font-size:11px;color:#B8B0A8;">If you did not create this account, please <a href="mailto:the9ineagency@gmail.com" style="color:#C9A84C;text-decoration:none;">contact support</a>.</p>
             </td>
           </tr>

@@ -55,9 +55,13 @@ export function BookingConfirmationEmail({
           <tr>
             <td style="padding:40px;">
 
-              ${eventImageUrl ? `
+              ${
+                eventImageUrl
+                  ? `
               <img src="${eventImageUrl}" width="520" alt="${eventTitle}" style="display:block;width:100%;max-width:520px;height:auto;border-radius:12px;margin-bottom:32px;"/>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <h1 style="margin:0 0 8px;font-size:28px;font-weight:800;color:#1C1A14;line-height:1.2;">
                 Your Access<br/><span style="color:#C9A84C;">Is Confirmed</span>
@@ -122,7 +126,7 @@ export function BookingConfirmationEmail({
             <td style="background:#F9F7F3;border-top:1px solid #E8E2D9;padding:28px 40px;text-align:center;border-radius:0 0 20px 20px;">
               <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.25em;color:#C9A84C;text-transform:uppercase;">EKOVIBE</p>
               <p style="margin:0 0 8px;font-size:11px;color:#9E9892;">Lagos &bull; Abuja &bull; Ibadan</p>
-              <p style="margin:0;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} Ekovibes Lifestyle Group</p>
+              <p style="margin:0;font-size:11px;color:#B8B0A8;">&copy; ${new Date().getFullYear()} ekovibe Lifestyle Group</p>
             </td>
           </tr>
 
