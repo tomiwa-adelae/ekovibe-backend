@@ -135,13 +135,16 @@ export class MediaService {
 
   // ── Public ─────────────────────────────────────────────────────────────────
 
-  async getPublishedPosts(query: { page?: number; limit?: number; category?: string; search?: string }) {
+  async getPublishedPosts(query: { page?: number; limit?: number; category?: string; search?: string; tag?: string; exclude?: string; featured?: boolean }) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 12;
     const skip = (page - 1) * limit;
 
     const where: any = { status: 'PUBLISHED' };
     if (query.category) where.category = query.category;
+    if (query.featured) where.isFeatured = true;
+    if (query.tag) where.tags = { has: query.tag };
+    if (query.exclude) where.slug = { not: query.exclude };
     if (query.search) {
       where.OR = [
         { title: { contains: query.search, mode: 'insensitive' } },
@@ -153,7 +156,7 @@ export class MediaService {
       this.prisma.post.count({ where }),
       this.prisma.post.findMany({
         where,
-        orderBy: { publishedAt: 'desc' },
+        orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }],
         skip,
         take: limit,
         select: {
@@ -164,6 +167,7 @@ export class MediaService {
           coverImage: true,
           category: true,
           tags: true,
+          isFeatured: true,
           publishedAt: true,
           author: { select: { firstName: true, lastName: true } },
         },
@@ -180,5 +184,27 @@ export class MediaService {
     });
     if (!post || post.status !== 'PUBLISHED') throw new NotFoundException('Post not found');
     return post;
+  }
+
+  async featurePost(id: string) {
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException('Post not found');
+    // Unfeature any currently featured post first
+    await this.prisma.post.updateMany({ where: { isFeatured: true }, data: { isFeatured: false } });
+    return this.prisma.post.update({
+      where: { id },
+      data: { isFeatured: true },
+      include: { author: { select: { firstName: true, lastName: true } } },
+    });
+  }
+
+  async unfeaturePost(id: string) {
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException('Post not found');
+    return this.prisma.post.update({
+      where: { id },
+      data: { isFeatured: false },
+      include: { author: { select: { firstName: true, lastName: true } } },
+    });
   }
 }

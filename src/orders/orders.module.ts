@@ -11,5 +11,6 @@ import { AuthModule } from 'src/auth/auth.module';
   imports: [AuthModule],
   controllers: [OrdersController],
   providers: [OrdersService, PaystackService, PrismaService, AdminGuard, VendorGuard],
+  exports: [PaystackService],
 })
 export class OrdersModule {}

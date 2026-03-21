@@ -11,6 +11,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
 @Controller('upload')
 @UseGuards(JwtAuthGuard)
 export class UploadController {
@@ -23,6 +25,8 @@ export class UploadController {
     @Param('userId') userId: string,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype))
+      throw new BadRequestException('Only JPEG, PNG, or WEBP images are allowed');
     return this.uploadService.uploadProfilePicture(userId, file);
   }
 
@@ -30,6 +34,8 @@ export class UploadController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   async uploadEventCover(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype))
+      throw new BadRequestException('Only JPEG, PNG, or WEBP images are allowed');
     const url = await this.uploadService.uploadEventCover(file);
     return { url };
   }

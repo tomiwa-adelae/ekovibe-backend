@@ -17,6 +17,7 @@ import { AdminGuard } from 'src/guards/admin.guard';
 import { MediaService } from './media.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { Public } from 'src/decorators/public.decorator';
 
 @Controller()
 export class MediaController {
@@ -24,16 +25,29 @@ export class MediaController {
 
   // ── Public ──────────────────────────────────────────────────────────────────
 
+  @Public()
   @Get('media')
   getPublishedPosts(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('category') category?: string,
     @Query('search') search?: string,
+    @Query('tag') tag?: string,
+    @Query('exclude') exclude?: string,
+    @Query('featured') featured?: string,
   ) {
-    return this.mediaService.getPublishedPosts({ page, limit, category, search });
+    return this.mediaService.getPublishedPosts({
+      page,
+      limit,
+      category,
+      search,
+      tag,
+      exclude,
+      featured: featured === 'true',
+    });
   }
 
+  @Public()
   @Get('media/:slug')
   getPublishedPostBySlug(@Param('slug') slug: string) {
     return this.mediaService.getPublishedPostBySlug(slug);
@@ -81,6 +95,18 @@ export class MediaController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   unpublishPost(@Param('id') id: string) {
     return this.mediaService.unpublishPost(id);
+  }
+
+  @Patch('a/media/:id/feature')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  featurePost(@Param('id') id: string) {
+    return this.mediaService.featurePost(id);
+  }
+
+  @Patch('a/media/:id/unfeature')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  unfeaturePost(@Param('id') id: string) {
+    return this.mediaService.unfeaturePost(id);
   }
 
   @Delete('a/media/:id')

@@ -10,6 +10,7 @@ import { MembershipModule } from './membership/membership.module';
 import { WalletModule } from './wallet/wallet.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { MediaModule } from './media/media.module';
+import { VaultModule } from './vault/vault.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { MediaModule } from './media/media.module';
     WalletModule,
     ReservationsModule,
     MediaModule,
+    VaultModule,
   ],
   controllers: [AppController],
   providers: [AppService],
