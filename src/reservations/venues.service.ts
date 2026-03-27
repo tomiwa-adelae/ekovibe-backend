@@ -578,6 +578,21 @@ export class VenuesService {
     });
   }
 
+  async adminAssignVenueOwner(venueId: string, ownerProfileId: string) {
+    const [venue, profile] = await Promise.all([
+      this.prisma.venue.findUnique({ where: { id: venueId } }),
+      this.prisma.venueOwnerProfile.findUnique({ where: { id: ownerProfileId } }),
+    ]);
+    if (!venue) throw new NotFoundException('Venue not found');
+    if (!profile) throw new NotFoundException('Venue owner profile not found');
+
+    return this.prisma.venue.update({
+      where: { id: venueId },
+      data: { ownerId: ownerProfileId },
+      select: { id: true, name: true, ownerId: true, owner: { select: { businessName: true, user: { select: { firstName: true, lastName: true, email: true } } } } },
+    });
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
   private async getOwnedVenue(slug: string, userId: string) {

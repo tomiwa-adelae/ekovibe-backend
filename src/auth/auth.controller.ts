@@ -212,6 +212,40 @@ export class AuthController {
     );
   }
 
+  // ── Admin: user management ────────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('a/users')
+  getAdminUsers(
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.authService.getAdminUsers({
+      search,
+      role,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('a/users/:id')
+  getAdminUserById(@Param('id') id: string) {
+    return this.authService.getAdminUserById(id);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('a/users/:id/venue-owner-profile')
+  @HttpCode(HttpStatus.CREATED)
+  adminCreateVenueOwnerProfile(
+    @Param('id') id: string,
+    @Body() dto: { businessName: string; businessEmail?: string; businessPhone?: string },
+  ) {
+    return this.authService.adminCreateVenueOwnerProfile(id, dto);
+  }
+
   // ── Admin: vendor management ───────────────────────────────────────────────
 
   @UseGuards(JwtAuthGuard, AdminGuard)

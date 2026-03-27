@@ -257,4 +257,10 @@ export class VenuesController {
   updatePlatformFee(@Param('id') id: string, @Body('platformFeePercent') fee: number) {
     return this.venuesService.updatePlatformFee(id, fee);
   }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('a/venues/:id/assign-owner')
+  assignVenueOwner(@Param('id') id: string, @Body('ownerProfileId') ownerProfileId: string) {
+    return this.venuesService.adminAssignVenueOwner(id, ownerProfileId);
+  }
 }

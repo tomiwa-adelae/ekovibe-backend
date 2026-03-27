@@ -683,4 +683,232 @@ export class AuthService {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
+
+  // ── Admin: user management ─────────────────────────────────────────────────
+
+  async getAdminUsers(query: {
+    search?: string;
+    role?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const { search, role, page = 1, limit = 30 } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = { isDeleted: false };
+    if (role) where.role = role;
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } },
+        { phoneNumber: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          username: true,
+          phoneNumber: true,
+          role: true,
+          userTier: true,
+          image: true,
+          city: true,
+          state: true,
+          country: true,
+          onboardingCompleted: true,
+          createdAt: true,
+          _count: {
+            select: {
+              orders: true,
+              tickets: true,
+              reservations: true,
+              ecomOrders: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    // Attach total spend per user
+    const usersWithStats = await Promise.all(
+      users.map(async (u) => {
+        const [ticketSpend, reservationSpend] = await Promise.all([
+          this.prisma.order.aggregate({
+            where: { userId: u.id, status: 'PAID' },
+            _sum: { total: true },
+          }),
+          this.prisma.reservationPayment.aggregate({
+            where: {
+              reservation: { userId: u.id },
+              status: 'PAID',
+            },
+            _sum: { amount: true },
+          }),
+        ]);
+        return {
+          ...u,
+          totalTicketOrders: u._count.orders,
+          totalTickets: u._count.tickets,
+          totalReservations: u._count.reservations,
+          totalEcomOrders: u._count.ecomOrders,
+          totalSpend:
+            (ticketSpend._sum.total ?? 0) +
+            (reservationSpend._sum.amount ?? 0),
+        };
+      }),
+    );
+
+    return {
+      data: usersWithStats,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getAdminUserById(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        admin: true,
+        vendorProfile: true,
+        venueOwnerProfile: {
+          include: {
+            venues: {
+              where: { isDeleted: false },
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true, name: true, slug: true, status: true,
+                city: true, coverImage: true, category: true, createdAt: true,
+                _count: { select: { reservations: true } },
+              },
+            },
+          },
+        },
+        wallet: true,
+        events: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            ticketTiers: { select: { name: true, price: true, quantity: true, sold: true } },
+            _count: { select: { orders: true } },
+          },
+        },
+        orders: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            event: { select: { id: true, title: true, date: true, coverImage: true } },
+            items: {
+              include: { ticketTier: { select: { name: true, price: true } } },
+            },
+          },
+        },
+        tickets: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            orderItem: {
+              include: {
+                ticketTier: { select: { name: true } },
+                order: {
+                  include: {
+                    event: { select: { title: true, date: true, coverImage: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        reservations: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            venue: { select: { id: true, name: true, coverImage: true, city: true } },
+            payment: true,
+          },
+        },
+        ecomOrders: {
+          orderBy: { createdAt: 'desc' },
+          include: { items: true },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const [ticketSpend, reservationSpend, eventRevenue] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { userId: id, status: 'PAID' },
+        _sum: { total: true },
+      }),
+      this.prisma.reservationPayment.aggregate({
+        where: { reservation: { userId: id }, status: 'PAID' },
+        _sum: { amount: true },
+      }),
+      // For vendors: revenue from events they created
+      this.prisma.order.aggregate({
+        where: { event: { createdById: id }, status: 'PAID' },
+        _sum: { subtotal: true },
+      }),
+    ]);
+
+    const { password, refreshToken, resetOTP, verificationCode, ...safe } =
+      user as any;
+
+    // Attach per-event revenue for vendor events
+    const eventsWithRevenue = await Promise.all(
+      (user.events ?? []).map(async (evt: any) => {
+        const rev = await this.prisma.order.aggregate({
+          where: { eventId: evt.id, status: 'PAID' },
+          _sum: { subtotal: true },
+        });
+        const totalSold = evt.ticketTiers.reduce((s: number, t: any) => s + t.sold, 0);
+        const totalCapacity = evt.ticketTiers.reduce((s: number, t: any) => s + t.quantity, 0);
+        return { ...evt, totalRevenue: rev._sum.subtotal ?? 0, totalSold, totalCapacity };
+      }),
+    );
+
+    return {
+      ...safe,
+      events: eventsWithRevenue,
+      totalTicketOrders: user.orders.length,
+      totalTickets: user.tickets.length,
+      totalReservations: user.reservations.length,
+      totalEcomOrders: user.ecomOrders.length,
+      totalSpend:
+        (ticketSpend._sum.total ?? 0) + (reservationSpend._sum.amount ?? 0),
+      vendorTotalRevenue: eventRevenue._sum.subtotal ?? 0,
+      walletBalance: (user as any).wallet?.balance ?? null,
+    };
+  }
+
+  async adminCreateVenueOwnerProfile(
+    userId: string,
+    dto: { businessName: string; businessEmail?: string; businessPhone?: string },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const existing = await this.prisma.venueOwnerProfile.findUnique({ where: { userId } });
+    if (existing) throw new ConflictException('This user already has a venue owner profile');
+
+    const [profile] = await this.prisma.$transaction([
+      this.prisma.venueOwnerProfile.create({
+        data: { userId, businessName: dto.businessName, businessEmail: dto.businessEmail, businessPhone: dto.businessPhone },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { role: 'VENUE_OWNER' },
+      }),
+    ]);
+
+    return profile;
+  }
 }
