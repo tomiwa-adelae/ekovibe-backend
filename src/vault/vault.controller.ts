@@ -15,6 +15,8 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
+import { RequireModule } from 'src/decorators/require-module.decorator';
 import { VaultService } from './vault.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import {
@@ -145,8 +147,9 @@ export class VaultController {
 
   // ── Admin: Products ──────────────────────────────────────────────────────────
 
+  @RequireModule('vault')
   @Get('a/vault/products')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminProducts(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -161,40 +164,46 @@ export class VaultController {
     });
   }
 
+  @RequireModule('vault')
   @Get('a/vault/products/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminProductById(@Param('id') id: string) {
     return this.vaultService.getAdminProductById(id);
   }
 
+  @RequireModule('vault')
   @Post('a/vault/products')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.CREATED)
   createProduct(@Body() dto: CreateProductDto) {
     return this.vaultService.createProduct(dto);
   }
 
+  @RequireModule('vault')
   @Patch('a/vault/products/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   updateProduct(@Param('id') id: string, @Body() dto: UpdateProductDto) {
     return this.vaultService.updateProduct(id, dto);
   }
 
+  @RequireModule('vault')
   @Delete('a/vault/products/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteProduct(@Param('id') id: string) {
     return this.vaultService.deleteProduct(id);
   }
 
+  @RequireModule('vault')
   @Post('a/vault/products/:id/variants')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   addVariant(@Param('id') id: string, @Body() dto: AddVariantDto) {
     return this.vaultService.addVariant(id, dto);
   }
 
+  @RequireModule('vault')
   @Patch('a/vault/variants/:variantId')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   updateVariant(
     @Param('variantId') variantId: string,
     @Body() dto: UpdateVariantDto,
@@ -202,8 +211,9 @@ export class VaultController {
     return this.vaultService.updateVariant(variantId, dto);
   }
 
+  @RequireModule('vault')
   @Delete('a/vault/variants/:variantId')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteVariant(@Param('variantId') variantId: string) {
     return this.vaultService.deleteVariant(variantId);
@@ -211,8 +221,9 @@ export class VaultController {
 
   // ── Admin: Orders ─────────────────────────────────────────────────────────────
 
+  @RequireModule('vault')
   @Get('a/vault/orders')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminOrders(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -222,14 +233,16 @@ export class VaultController {
     return this.vaultService.getAdminOrders({ page, limit, status, search });
   }
 
+  @RequireModule('vault')
   @Get('a/vault/orders/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminOrderById(@Param('id') id: string) {
     return this.vaultService.getAdminOrderById(id);
   }
 
+  @RequireModule('vault')
   @Patch('a/vault/orders/:id/status')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   updateOrderStatus(
     @Param('id') id: string,
     @Body() dto: UpdateOrderStatusDto,
@@ -239,8 +252,9 @@ export class VaultController {
 
   // ── Admin: Delivery Zones ───────────────────────────────────────────────────
 
+  @RequireModule('vault')
   @Put('a/vault/delivery-zones')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   upsertDeliveryZones(@Body() zones: DeliveryZoneDto[]) {
     return this.vaultService.upsertDeliveryZones(zones);
   }

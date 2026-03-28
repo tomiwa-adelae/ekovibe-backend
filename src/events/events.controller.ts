@@ -14,7 +14,9 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
 import { VendorGuard } from 'src/guards/vendor.guard';
+import { RequireModule } from 'src/decorators/require-module.decorator';
 import { Public } from 'src/decorators/public.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -43,39 +45,45 @@ export class EventsController {
 
   // ── Admin routes ──────────────────────────────────────────────────────────
 
+  @RequireModule('events')
   @Get('a/events/stats')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminStats() {
     return this.eventsService.getAdminStats();
   }
 
+  @RequireModule('events')
   @Get('a/events')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminEvents(@Query() query: EventQueryDto) {
     return this.eventsService.findAllAdmin(query);
   }
 
+  @RequireModule('events')
   @Get('a/events/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminEventById(@Param('id') id: string) {
     return this.eventsService.findById(id);
   }
 
+  @RequireModule('events')
   @Post('a/events')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.CREATED)
   createEvent(@Body() dto: CreateEventDto, @Request() req) {
     return this.eventsService.create(dto, req.user.id);
   }
 
+  @RequireModule('events')
   @Patch('a/events/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   updateEvent(@Param('id') id: string, @Body() dto: UpdateEventDto) {
     return this.eventsService.update(id, dto);
   }
 
+  @RequireModule('events')
   @Patch('a/events/:id/status')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   updateEventStatus(
     @Param('id') id: string,
     @Body() dto: UpdateEventStatusDto,
@@ -83,22 +91,25 @@ export class EventsController {
     return this.eventsService.updateStatus(id, dto);
   }
 
+  @RequireModule('events')
   @Post('a/events/:id/approve')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.OK)
   approveEvent(@Param('id') id: string) {
     return this.eventsService.approveEvent(id);
   }
 
+  @RequireModule('events')
   @Post('a/events/:id/reject')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.OK)
   rejectEvent(@Param('id') id: string, @Body() dto: RejectEventDto) {
     return this.eventsService.rejectEvent(id, dto.reason);
   }
 
+  @RequireModule('events')
   @Delete('a/events/:id')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.OK)
   deleteEvent(@Param('id') id: string) {
     return this.eventsService.delete(id);

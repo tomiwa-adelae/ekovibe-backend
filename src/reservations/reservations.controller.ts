@@ -15,6 +15,8 @@ import {
 import { ReservationsService } from './reservations.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
+import { RequireModule } from 'src/decorators/require-module.decorator';
 import { VenueOwnerGuard } from 'src/guards/venue-owner.guard';
 import { Public } from 'src/decorators/public.decorator';
 import { ReservationStatus } from 'generated/prisma/client';
@@ -162,7 +164,8 @@ export class ReservationsController {
 
   // ── Admin: Reservations ───────────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/reservations')
   getAllReservationsAdmin(
     @Query('status') status?: ReservationStatus,
@@ -178,7 +181,8 @@ export class ReservationsController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/reservations/:id/confirm')
   @HttpCode(HttpStatus.OK)
   adminOverrideConfirm(
@@ -188,7 +192,8 @@ export class ReservationsController {
     return this.reservationsService.adminOverrideConfirm(id, adminNote);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/reservations/:id/cancel')
   @HttpCode(HttpStatus.OK)
   adminOverrideCancel(
@@ -198,7 +203,8 @@ export class ReservationsController {
     return this.reservationsService.adminOverrideCancel(id, adminNote);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/reservations/waitlist/:id/notify')
   @HttpCode(HttpStatus.OK)
   adminNotifyWaitlist(@Param('id') id: string) {

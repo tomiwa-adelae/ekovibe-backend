@@ -8,6 +8,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LocalStrategy } from './strategies/local.strategies';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
+import { SuperAdminGuard } from 'src/guards/super-admin.guard';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -17,6 +19,8 @@ import { AdminGuard } from 'src/guards/admin.guard';
     TokenService,
     JwtAuthGuard,
     AdminGuard,
+    ModuleGuard,
+    SuperAdminGuard,
     PrismaService,
     LocalStrategy,
     JwtStrategy,

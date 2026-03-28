@@ -12,6 +12,8 @@ import { CreateMembershipApplicationDto } from './dto/create-membership-applicat
 import { Public } from 'src/decorators/public.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
+import { RequireModule } from 'src/decorators/require-module.decorator';
 import { ApplicationStatus } from 'generated/prisma/client';
 
 @Controller('membership')
@@ -32,7 +34,8 @@ export class MembershipController {
 
   // ── Admin routes ─────────────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('users')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/applications')
   getApplications(
     @Query('status') status?: ApplicationStatus,
@@ -46,13 +49,15 @@ export class MembershipController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('users')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/applications/:id/approve')
   approveApplication(@Param('id') id: string) {
     return this.membershipService.approveAndSendPaymentLink(id);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('users')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/applications/:id/reject')
   rejectApplication(@Param('id') id: string) {
     return this.membershipService.rejectApplication(id);

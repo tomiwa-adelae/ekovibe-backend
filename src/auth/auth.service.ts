@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -146,6 +147,8 @@ export class AuthService {
           ...updatedUser,
           isAdmin: !!updatedUser.admin,
           isVendor: updatedUser.role === 'VENDOR',
+          adminPosition: updatedUser.admin?.position ?? null,
+          adminModules: updatedUser.admin?.modules ?? null,
         },
         { excludeExtraneousValues: true },
       ),
@@ -437,7 +440,13 @@ export class AuthService {
     const { password, refreshToken, ...safe } = user;
     return plainToClass(
       UserResponseDto,
-      { ...safe, isAdmin: !!user.admin, isVendor: user.role === 'VENDOR' },
+      {
+        ...safe,
+        isAdmin: !!user.admin,
+        isVendor: user.role === 'VENDOR',
+        adminPosition: user.admin?.position ?? null,
+        adminModules: user.admin?.modules ?? null,
+      },
       { excludeExtraneousValues: true },
     );
   }
@@ -494,6 +503,34 @@ export class AuthService {
           },
         },
       });
+    } else if (dto.accountType === 'venue_owner') {
+      if (!dto.businessName)
+        throw new BadRequestException('Business name is required');
+
+      // Create profile + update role atomically. If a profile already exists
+      // (e.g. created by admin), just ensure role is correct.
+      const existing = await this.prisma.venueOwnerProfile.findUnique({ where: { userId } });
+      if (!existing) {
+        await this.prisma.$transaction([
+          this.prisma.venueOwnerProfile.create({
+            data: {
+              userId,
+              businessName: dto.businessName,
+              businessEmail: dto.businessEmail,
+              businessPhone: dto.businessPhone,
+            },
+          }),
+          this.prisma.user.update({
+            where: { id: userId },
+            data: { role: 'VENUE_OWNER', onboardingCompleted: true },
+          }),
+        ]);
+      } else {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { role: 'VENUE_OWNER', onboardingCompleted: true },
+        });
+      }
     } else {
       await this.prisma.user.update({
         where: { id: userId },
@@ -516,6 +553,8 @@ export class AuthService {
         ...updated,
         isAdmin: !!updated?.admin,
         isVendor: updated?.role === 'VENDOR',
+        adminPosition: updated?.admin?.position ?? null,
+        adminModules: updated?.admin?.modules ?? null,
       },
       { excludeExtraneousValues: true },
     );
@@ -910,5 +949,151 @@ export class AuthService {
     ]);
 
     return profile;
+  }
+
+  // ── Team Management (SUPER_ADMIN only) ────────────────────────────────────
+
+  async getTeam() {
+    const admins = await this.prisma.admin.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            image: true,
+            username: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return admins;
+  }
+
+  async searchUsersForTeam(query: string) {
+    // Find users who are NOT already admins
+    const existingAdminUserIds = await this.prisma.admin
+      .findMany({ select: { userId: true } })
+      .then((admins) => admins.map((a) => a.userId));
+
+    return this.prisma.user.findMany({
+      where: {
+        AND: [
+          { id: { notIn: existingAdminUserIds } },
+          {
+            OR: [
+              { email: { contains: query, mode: 'insensitive' } },
+              { firstName: { contains: query, mode: 'insensitive' } },
+              { lastName: { contains: query, mode: 'insensitive' } },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        image: true,
+        username: true,
+      },
+      take: 10,
+    });
+  }
+
+  async addTeamMember(
+    dto: { userId: string; position: string; modules?: string[] },
+    currentAdminUserId: string,
+  ) {
+    const existing = await this.prisma.admin.findUnique({
+      where: { userId: dto.userId },
+    });
+    if (existing) {
+      throw new ConflictException('This user is already an admin');
+    }
+
+    // Prevent adding as SUPER_ADMIN via this endpoint
+    if (dto.position === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot assign SUPER_ADMIN via this endpoint');
+    }
+
+    return this.prisma.admin.create({
+      data: {
+        userId: dto.userId,
+        position: dto.position as any,
+        modules: dto.modules ?? [],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            image: true,
+            username: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateTeamMember(
+    adminId: string,
+    dto: { position?: string; modules?: string[] },
+    currentAdminUserId: string,
+  ) {
+    const admin = await this.prisma.admin.findUnique({
+      where: { id: adminId },
+    });
+    if (!admin) throw new NotFoundException('Team member not found');
+    if (admin.position === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot modify a SUPER_ADMIN');
+    }
+    if (dto.position === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot promote to SUPER_ADMIN via this endpoint');
+    }
+
+    return this.prisma.admin.update({
+      where: { id: adminId },
+      data: {
+        ...(dto.position && { position: dto.position as any }),
+        ...(dto.modules !== undefined && { modules: dto.modules }),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            image: true,
+            username: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  async removeTeamMember(adminId: string, currentAdminUserId: string) {
+    const admin = await this.prisma.admin.findUnique({
+      where: { id: adminId },
+    });
+    if (!admin) throw new NotFoundException('Team member not found');
+    if (admin.position === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot remove a SUPER_ADMIN');
+    }
+    // Prevent self-removal (shouldn't happen since SUPER_ADMIN can't be removed, but safety check)
+    if (admin.userId === currentAdminUserId) {
+      throw new ForbiddenException('Cannot remove yourself');
+    }
+
+    await this.prisma.admin.delete({ where: { id: adminId } });
+    return { message: 'Team member removed' };
   }
 }

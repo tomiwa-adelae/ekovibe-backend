@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
+import { RequireModule } from 'src/decorators/require-module.decorator';
 import { VendorGuard } from 'src/guards/vendor.guard';
 import { OrdersService } from './orders.service';
 import { InitiateOrderDto } from './dto/initiate-order.dto';
@@ -49,8 +51,9 @@ export class OrdersController {
 
   // ── Admin routes ──────────────────────────────────────────────────────────
 
+  @RequireModule('events')
   @Get('a/orders')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getAdminOrders(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -59,14 +62,16 @@ export class OrdersController {
     return this.ordersService.getAdminOrders({ page, limit, eventId });
   }
 
+  @RequireModule('events')
   @Get('a/tickets/:code')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   getTicketByCode(@Param('code') code: string) {
     return this.ordersService.getTicketByCode(code);
   }
 
+  @RequireModule('events')
   @Post('a/tickets/scan')
-  @UseGuards(AdminGuard)
+  @UseGuards(AdminGuard, ModuleGuard)
   @HttpCode(HttpStatus.OK)
   scanTicket(@Body() dto: ScanTicketDto) {
     return this.ordersService.scanTicket(dto.code);

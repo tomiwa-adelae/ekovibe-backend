@@ -72,4 +72,10 @@ export class UserResponseDto {
 
   @Expose()
   isVendor?: boolean;
+
+  @Expose()
+  adminPosition?: string;
+
+  @Expose()
+  adminModules?: string[];
 }

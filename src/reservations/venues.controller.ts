@@ -16,6 +16,8 @@ import {
 import { VenuesService } from './venues.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
+import { RequireModule } from 'src/decorators/require-module.decorator';
 import { VenueOwnerGuard } from 'src/guards/venue-owner.guard';
 import { Public } from 'src/decorators/public.decorator';
 import { VenueStatus, VenueCategory } from 'generated/prisma/client';
@@ -209,7 +211,8 @@ export class VenuesController {
 
   // ── Admin: Venues ─────────────────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/venues')
   getAllVenuesAdmin(
     @Query('status') status?: VenueStatus,
@@ -225,40 +228,46 @@ export class VenuesController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/venues/:id')
   getVenueByIdAdmin(@Param('id') id: string) {
     return this.venuesService.getVenueByIdAdmin(id);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/venues/:id/approve')
   @HttpCode(HttpStatus.OK)
   approveVenue(@Param('id') id: string) {
     return this.venuesService.approveVenue(id);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/venues/:id/reject')
   @HttpCode(HttpStatus.OK)
   rejectVenue(@Param('id') id: string, @Body('reason') reason: string) {
     return this.venuesService.rejectVenue(id, reason);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/venues/:id/suspend')
   @HttpCode(HttpStatus.OK)
   suspendVenue(@Param('id') id: string) {
     return this.venuesService.suspendVenue(id);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Patch('a/venues/:id/platform-fee')
   updatePlatformFee(@Param('id') id: string, @Body('platformFeePercent') fee: number) {
     return this.venuesService.updatePlatformFee(id, fee);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('reservations')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Patch('a/venues/:id/assign-owner')
   assignVenueOwner(@Param('id') id: string, @Body('ownerProfileId') ownerProfileId: string) {
     return this.venuesService.adminAssignVenueOwner(id, ownerProfileId);

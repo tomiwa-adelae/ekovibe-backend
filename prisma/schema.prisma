@@ -76,6 +76,7 @@ model Admin {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   position  AdminPosition @default(ADMIN)
+  modules   String[]      @default([])
   user      User          @relation(fields: [userId], references: [id])
 }
 

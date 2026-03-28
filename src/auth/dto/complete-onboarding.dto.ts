@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsEmail,
   IsIn,
   IsOptional,
   IsString,
@@ -8,13 +9,14 @@ import {
 
 export class CompleteOnboardingDto {
   @IsString()
-  @IsIn(['user', 'vendor'])
-  accountType: 'user' | 'vendor';
+  @IsIn(['user', 'vendor', 'venue_owner'])
+  accountType: 'user' | 'vendor' | 'venue_owner';
 
   @IsArray()
   @IsOptional()
   interests?: string[];
 
+  // ── Vendor fields ─────────────────────────────────────────────────────────
   @ValidateIf((o) => o.accountType === 'vendor')
   @IsString()
   brandName?: string;
@@ -30,4 +32,17 @@ export class CompleteOnboardingDto {
   @IsString()
   @IsOptional()
   instagram?: string;
+
+  // ── Venue owner fields ────────────────────────────────────────────────────
+  @ValidateIf((o) => o.accountType === 'venue_owner')
+  @IsString()
+  businessName?: string;
+
+  @IsEmail()
+  @IsOptional()
+  businessEmail?: string;
+
+  @IsString()
+  @IsOptional()
+  businessPhone?: string;
 }

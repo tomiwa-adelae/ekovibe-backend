@@ -6,6 +6,7 @@ import { ReservationsService } from './reservations.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthModule } from 'src/auth/auth.module';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
 import { VenueOwnerGuard } from 'src/guards/venue-owner.guard';
 import { OrdersModule } from 'src/orders/orders.module';
 import { WalletModule } from 'src/wallet/wallet.module';
@@ -13,6 +14,6 @@ import { WalletModule } from 'src/wallet/wallet.module';
 @Module({
   imports: [AuthModule, OrdersModule, WalletModule],
   controllers: [VenuesController, ReservationsController],
-  providers: [VenuesService, ReservationsService, PrismaService, AdminGuard, VenueOwnerGuard],
+  providers: [VenuesService, ReservationsService, PrismaService, AdminGuard, ModuleGuard, VenueOwnerGuard],
 })
 export class ReservationsModule {}

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -26,6 +27,10 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { CurrentUser } from 'src/decorators/current-user.decorator';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 import { AdminGuard } from 'src/guards/admin.guard';
+import { ModuleGuard } from 'src/guards/module.guard';
+import { RequireModule } from 'src/decorators/require-module.decorator';
+import { SuperAdminGuard } from 'src/guards/super-admin.guard';
+import { AddTeamMemberDto, UpdateTeamMemberDto } from './dto/team-member.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -214,7 +219,8 @@ export class AuthController {
 
   // ── Admin: user management ────────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('users')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/users')
   getAdminUsers(
     @Query('search') search?: string,
@@ -230,13 +236,15 @@ export class AuthController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('users')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/users/:id')
   getAdminUserById(@Param('id') id: string) {
     return this.authService.getAdminUserById(id);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('users')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Post('a/users/:id/venue-owner-profile')
   @HttpCode(HttpStatus.CREATED)
   adminCreateVenueOwnerProfile(
@@ -248,13 +256,15 @@ export class AuthController {
 
   // ── Admin: vendor management ───────────────────────────────────────────────
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('vendors')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/vendors/:id')
   getAdminVendorById(@Param('id') id: string) {
     return this.authService.getAdminVendorById(id);
   }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @RequireModule('vendors')
+  @UseGuards(JwtAuthGuard, AdminGuard, ModuleGuard)
   @Get('a/vendors')
   getAdminVendors(
     @Query('search') search?: string,
@@ -266,5 +276,49 @@ export class AuthController {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
+  }
+
+  // ── Team management (SUPER_ADMIN only) ────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard, AdminGuard, SuperAdminGuard)
+  @Get('a/team')
+  getTeam() {
+    return this.authService.getTeam();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard, SuperAdminGuard)
+  @Get('a/team/search')
+  searchUsersForTeam(@Query('q') q: string) {
+    return this.authService.searchUsersForTeam(q ?? '');
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard, SuperAdminGuard)
+  @Post('a/team')
+  @HttpCode(HttpStatus.CREATED)
+  addTeamMember(
+    @Body() dto: AddTeamMemberDto,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.authService.addTeamMember(dto, currentUser.id);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard, SuperAdminGuard)
+  @Patch('a/team/:id')
+  updateTeamMember(
+    @Param('id') id: string,
+    @Body() dto: UpdateTeamMemberDto,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.authService.updateTeamMember(id, dto, currentUser.id);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard, SuperAdminGuard)
+  @Delete('a/team/:id')
+  @HttpCode(HttpStatus.OK)
+  removeTeamMember(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.authService.removeTeamMember(id, currentUser.id);
   }
 }
