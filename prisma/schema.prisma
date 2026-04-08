@@ -822,6 +822,19 @@ model EcomOrder {
   updatedAt DateTime @updatedAt
 }
 
+// ─── Newsletter ───────────────────────────────────────────────────────────────
+
+model NewsletterSubscriber {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  confirmed         Boolean   @default(false)
+  confirmationToken String    @unique @default(uuid())
+  unsubscribeToken  String    @unique @default(uuid())
+  subscribedAt      DateTime  @default(now())
+  confirmedAt       DateTime?
+  unsubscribedAt    DateTime?
+}
+
 model EcomOrderItem {
   id        String @id @default(uuid())
   orderId   String

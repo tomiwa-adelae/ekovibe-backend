@@ -11,6 +11,7 @@ import { WalletModule } from './wallet/wallet.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { MediaModule } from './media/media.module';
 import { VaultModule } from './vault/vault.module';
+import { NewsletterModule } from './newsletter/newsletter.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { VaultModule } from './vault/vault.module';
     ReservationsModule,
     MediaModule,
     VaultModule,
+    NewsletterModule,
   ],
   controllers: [AppController],
   providers: [AppService],
